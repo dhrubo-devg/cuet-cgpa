@@ -1,0 +1,2124 @@
+<!DOCTYPE html>
+<html lang="bn" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CUET GradeSheet & CGPA Analyzer</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Google Fonts: Inter & Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- jsPDF & jsPDF-AutoTable for 100% crisp, exact A4 vector PDFs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            cuet: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+              900: '#064e3b'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 12mm;
+    }
+    @media print {
+      body {
+        background: white !important;
+        color: black !important;
+      }
+      body * {
+        visibility: hidden;
+      }
+      #pdf-modal, #print-modal-container, #print-modal-container * {
+        visibility: visible;
+      }
+      #pdf-modal {
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        background: white !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: visible !important;
+        display: block !important;
+      }
+      #print-modal-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+    }
+    .dark .glass-card {
+      background: rgba(30, 41, 59, 0.85);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-200">
+
+  <!-- Navigation Bar -->
+  <header class="sticky top-0 z-40 bg-white/90 dark:bg-slate-800/90 backdrop-blur border-b border-slate-200 dark:border-slate-700 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+          <i class="fa-solid fa-graduation-cap text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold font-display tracking-tight text-slate-900 dark:text-white leading-tight">CUET CGPA &amp; GradeSheet Analyzer</h1>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <!-- New Data / Parser Modal Button -->
+        <button onclick="toggleModal('parser-modal')" class="px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-plus text-emerald-600 dark:text-emerald-400"></i>
+          <span>Add / Paste Data</span>
+        </button>
+
+        <!-- Clear Data Button -->
+        <button id="clear-data-btn" onclick="clearAllData()" class="hidden px-3 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-trash-can"></i>
+          <span class="hidden md:inline">Clear</span>
+        </button>
+
+        <!-- Preview Full Report Button -->
+        <button id="preview-all-btn" onclick="openTranscriptModal()" class="hidden px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-lg border border-emerald-600 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-eye"></i>
+          <span class="hidden sm:inline">Preview All</span>
+        </button>
+
+        <!-- Direct Vector PDF Download Button -->
+        <button id="pdf-all-btn" onclick="generateVectorPDF('All')" class="hidden px-3.5 py-1.5 text-xs sm:text-sm font-medium rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5 transition">
+          <i class="fa-solid fa-file-pdf"></i>
+          <span class="hidden sm:inline">Full Report PDF</span>
+          <span class="sm:hidden">All PDF</span>
+        </button>
+
+        <!-- Dark Mode Toggle -->
+        <button onclick="toggleTheme()" class="p-2 rounded-lg text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-200 bg-slate-100 dark:bg-slate-700 transition" aria-label="Toggle theme">
+          <i id="theme-icon" class="fa-solid fa-moon"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full space-y-6">
+
+    <!-- Optional Student Profile Bar -->
+    <section class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 sm:p-5 shadow-sm">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+            <i class="fa-solid fa-id-card"></i>
+          </div>
+          <div>
+            <h2 class="text-sm font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              Student Information
+              <span class="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">Optional</span>
+            </h2>
+            <p class="text-xs text-slate-500 dark:text-slate-400">If filled, your Name &amp; ID will appear on top of generated PDFs. Leave blank to hide.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full md:w-auto md:min-w-[420px]">
+          <div class="relative">
+            <i class="fa-regular fa-user absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input id="student-name-input" type="text" oninput="updateStudentInfo()" placeholder="Student Name (Optional)" class="w-full pl-8 pr-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+          <div class="relative">
+            <i class="fa-solid fa-hashtag absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input id="student-id-input" type="text" oninput="updateStudentInfo()" placeholder="Student ID (e.g. 2203...)" class="w-full pl-8 pr-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none font-mono">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- EMPTY / BLANK ONBOARDING STATE (Shown when no courses are loaded) -->
+    <section id="empty-onboarding-section" class="bg-white dark:bg-slate-800 rounded-2xl border-2 border-dashed border-emerald-400/70 dark:border-emerald-600/60 p-6 sm:p-8 shadow-sm">
+      <div class="max-w-3xl mx-auto text-center space-y-5">
+        <div class="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto text-2xl shadow-sm">
+          <i class="fa-solid fa-paste"></i>
+        </div>
+        <div>
+          <h2 class="text-xl sm:text-2xl font-extrabold font-display text-slate-900 dark:text-white">Paste Your Portal Result Text</h2>
+        </div>
+
+        <!-- 4-Step Bengali Instructions Box -->
+        <div class="bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/70 rounded-xl p-4 text-left max-w-2xl mx-auto">
+          <p class="text-xs font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-info"></i> কীভাবে ব্যবহার করবেন:
+          </p>
+          <ol class="text-xs sm:text-sm text-slate-700 dark:text-slate-200 space-y-1.5 font-medium leading-relaxed">
+            <li>১. আপনার <span class="font-mono font-semibold text-emerald-700 dark:text-emerald-400">course.cuet.ac.bd</span>-তে Log in করে <strong>Published Results</strong> মেন্যুতে যান।</li>
+            <li>২. সেখানে <strong>Records per page</strong>-কে <strong>100</strong>-তে সেট করুন।</li>
+            <li>৩. <kbd class="px-1.5 py-0.5 text-xs font-mono bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded shadow-sm">Ctrl + A</kbd> চেপে পুরোটা <strong>Copy</strong> করুন।</li>
+            <li>৪. নিচের বক্সে <strong>Paste</strong> করুন।</li>
+          </ol>
+        </div>
+
+        <div class="text-left">
+          <textarea id="onboarding-raw-textarea" rows="7" class="w-full text-xs sm:text-sm font-mono p-4 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-inner" placeholder="এখানে আপনার কপি করা পুরো টেক্সট Paste করুন..."></textarea>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-center gap-3 pt-1">
+          <button onclick="parseFromOnboarding()" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm shadow-md shadow-emerald-600/20 flex items-center gap-2 transition">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Analyze &amp; Calculate CGPA</span>
+          </button>
+          <button onclick="toggleModal('parser-modal')" class="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium text-xs sm:text-sm flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-plus"></i>
+            <span>Add Course Manually</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- DASHBOARD CONTENT WRAPPER (Hidden when empty) -->
+    <div id="dashboard-content-wrapper" class="hidden space-y-6">
+
+      <!-- Overview Banner / Quick Stats -->
+      <section class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- CGPA Card -->
+        <div class="glass-card rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm relative overflow-hidden">
+          <div class="absolute -right-4 -bottom-4 text-emerald-500/10 dark:text-emerald-400/10 text-7xl font-bold font-display select-none">GPA</div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Cumulative GPA (CGPA)</p>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="stat-cgpa" class="text-3xl sm:text-4xl font-extrabold font-display text-emerald-600 dark:text-emerald-400 tracking-tight">0.00</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">/ 4.00</span>
+          </div>
+          <div class="mt-2 text-xs font-medium text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+            <i class="fa-solid fa-circle-check"></i> <span id="stat-class-standing">-</span>
+          </div>
+        </div>
+
+        <!-- Total Credits Card -->
+        <div class="glass-card rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm relative overflow-hidden">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Credits Earned</p>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="stat-credits" class="text-3xl sm:text-4xl font-extrabold font-display text-slate-900 dark:text-white tracking-tight">0.00</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Credits</span>
+          </div>
+          <div class="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <i class="fa-solid fa-book-bookmark"></i> Across <span id="stat-courses-count" class="font-semibold text-slate-700 dark:text-slate-200">0</span> Courses
+          </div>
+        </div>
+
+        <!-- Quality Points / Grade Points -->
+        <div class="glass-card rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm relative overflow-hidden">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Total Grade Points</p>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="stat-points" class="text-3xl sm:text-4xl font-extrabold font-display text-slate-900 dark:text-white tracking-tight">0.00</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Points</span>
+          </div>
+          <div class="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <i class="fa-solid fa-calculator"></i> &Sigma; (Credit &times; Grade Point)
+          </div>
+        </div>
+
+        <!-- Completed Terms -->
+        <div class="glass-card rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm relative overflow-hidden">
+          <p class="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Completed Terms</p>
+          <div class="mt-2 flex items-baseline gap-2">
+            <span id="stat-terms" class="text-3xl sm:text-4xl font-extrabold font-display text-slate-900 dark:text-white tracking-tight">0</span>
+            <span class="text-xs text-slate-500 dark:text-slate-400 font-medium">Terms</span>
+          </div>
+          <div class="mt-2 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+            <i class="fa-solid fa-timeline"></i> <span id="stat-term-range">Academic Breakdown</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Term Navigation Tabs -->
+      <div class="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-700 pb-3" id="term-tabs-nav">
+        <!-- Tabs will be rendered here dynamically -->
+      </div>
+
+      <!-- Advanced Multi-Filter & Sort Toolbar -->
+      <section class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 shadow-sm space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300">
+            <i class="fa-solid fa-filter text-emerald-600 dark:text-emerald-400"></i>
+            <span>Filter &amp; Sort Courses</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button onclick="resetFiltersAndSort()" class="text-xs text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 font-medium flex items-center gap-1">
+              <i class="fa-solid fa-rotate-left"></i> Reset Filters
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+          <!-- Search Input -->
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input id="filter-search" type="text" oninput="applyFilters()" placeholder="Search course (e.g. ME, 231)..." class="w-full pl-8 pr-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+          </div>
+
+          <!-- Category Filter (Theory / Sessional) -->
+          <select id="filter-category" onchange="applyFilters()" class="px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <option value="ALL">All Types (Theory &amp; Sessional)</option>
+            <option value="THEORY">Theory Only (Sessional: No)</option>
+            <option value="SESSIONAL">Sessional Only (Sessional: Yes)</option>
+          </select>
+
+          <!-- Grade Filter -->
+          <select id="filter-grade" onchange="applyFilters()" class="px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <option value="ALL">All Grades</option>
+            <option value="A+">A+ (4.00)</option>
+            <option value="A">A (3.75)</option>
+            <option value="A-">A- (3.50)</option>
+            <option value="B+">B+ (3.25)</option>
+            <option value="B">B (3.00)</option>
+            <option value="B-">B- (2.75)</option>
+            <option value="C+">C+ (2.50)</option>
+            <option value="C">C (2.25)</option>
+            <option value="D">D (2.00)</option>
+            <option value="F">F (0.00)</option>
+          </select>
+
+          <!-- Department / Prefix Filter -->
+          <select id="filter-prefix" onchange="applyFilters()" class="px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none">
+            <option value="ALL">All Departments / Prefixes</option>
+          </select>
+
+          <!-- Sort By Dropdown -->
+          <div class="flex gap-1.5">
+            <select id="sort-field-select" onchange="handleSortDropdownChange()" class="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-emerald-500 focus:outline-none font-medium">
+              <option value="default">Sort: Default Order</option>
+              <option value="code">Sort: Course Code</option>
+              <option value="term">Sort: Level-Term</option>
+              <option value="type">Sort: Theory / Sessional</option>
+              <option value="credit">Sort: Course Credit</option>
+              <option value="grade">Sort: Result / Grade</option>
+              <option value="points">Sort: Quality Points</option>
+            </select>
+            <button id="sort-dir-btn" onclick="toggleSortDirection()" title="Toggle Ascending / Descending" class="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition">
+              <i id="sort-dir-icon" class="fa-solid fa-arrow-down-short-wide"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Department Quick Filter Pills -->
+        <div id="prefix-pills-container" class="flex flex-wrap items-center gap-1.5 pt-1">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
+      <!-- Active Term / Filtered Content Section -->
+      <div id="active-term-container" class="space-y-4">
+        <!-- Injected by JavaScript -->
+      </div>
+
+      <!-- Term Performance Timeline / Trend Chart Mini Grid -->
+      <section class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <h3 class="text-base font-bold font-display text-slate-800 dark:text-white flex items-center gap-2">
+            <i class="fa-solid fa-chart-line text-emerald-600 dark:text-emerald-400"></i>
+            Semester Performance &amp; Quick Term PDFs
+          </h3>
+          <span class="text-xs text-slate-400">Click any term card to view details or download its A4 PDF</span>
+        </div>
+        <div id="term-summary-cards" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Rendered by JS -->
+        </div>
+      </section>
+
+    </div>
+
+    <!-- Grading Scale Reference Bar (Collapsible) -->
+    <details class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 transition-all">
+      <summary class="cursor-pointer text-xs sm:text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between select-none">
+        <span class="flex items-center gap-2">
+          <i class="fa-solid fa-circle-info text-emerald-600 dark:text-emerald-400"></i>
+          CUET / UGC Bangladesh Grading Scale Reference
+        </span>
+        <span class="text-xs text-slate-400">Click to expand</span>
+      </summary>
+      <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 grid grid-cols-2 sm:grid-cols-5 md:grid-cols-10 gap-2 text-center text-xs">
+        <div class="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 font-medium">
+          <div class="font-bold text-emerald-700 dark:text-emerald-400">A+</div>
+          <div class="text-slate-600 dark:text-slate-300">4.00</div>
+          <div class="text-[10px] text-slate-400">&ge; 80%</div>
+        </div>
+        <div class="p-2 rounded-lg bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800/60 font-medium">
+          <div class="font-bold text-emerald-700 dark:text-emerald-400">A</div>
+          <div class="text-slate-600 dark:text-slate-300">3.75</div>
+          <div class="text-[10px] text-slate-400">75% - 79%</div>
+        </div>
+        <div class="p-2 rounded-lg bg-emerald-50/40 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-800/40 font-medium">
+          <div class="font-bold text-emerald-700 dark:text-emerald-400">A-</div>
+          <div class="text-slate-600 dark:text-slate-300">3.50</div>
+          <div class="text-[10px] text-slate-400">70% - 74%</div>
+        </div>
+        <div class="p-2 rounded-lg bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900 font-medium">
+          <div class="font-bold text-blue-700 dark:text-blue-400">B+</div>
+          <div class="text-slate-600 dark:text-slate-300">3.25</div>
+          <div class="text-[10px] text-slate-400">65% - 69%</div>
+        </div>
+        <div class="p-2 rounded-lg bg-blue-50/40 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900 font-medium">
+          <div class="font-bold text-blue-700 dark:text-blue-400">B</div>
+          <div class="text-slate-600 dark:text-slate-300">3.00</div>
+          <div class="text-[10px] text-slate-400">60% - 64%</div>
+        </div>
+        <div class="p-2 rounded-lg bg-blue-50/20 dark:bg-blue-950/10 border border-blue-100 dark:border-blue-900/60 font-medium">
+          <div class="font-bold text-blue-700 dark:text-blue-400">B-</div>
+          <div class="text-slate-600 dark:text-slate-300">2.75</div>
+          <div class="text-[10px] text-slate-400">55% - 59%</div>
+        </div>
+        <div class="p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-100 dark:border-amber-900 font-medium">
+          <div class="font-bold text-amber-700 dark:text-amber-400">C+</div>
+          <div class="text-slate-600 dark:text-slate-300">2.50</div>
+          <div class="text-[10px] text-slate-400">50% - 54%</div>
+        </div>
+        <div class="p-2 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/50 font-medium">
+          <div class="font-bold text-amber-700 dark:text-amber-400">C</div>
+          <div class="text-slate-600 dark:text-slate-300">2.25</div>
+          <div class="text-[10px] text-slate-400">45% - 49%</div>
+        </div>
+        <div class="p-2 rounded-lg bg-orange-50 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900 font-medium">
+          <div class="font-bold text-orange-700 dark:text-orange-400">D</div>
+          <div class="text-slate-600 dark:text-slate-300">2.00</div>
+          <div class="text-[10px] text-slate-400">40% - 44%</div>
+        </div>
+        <div class="p-2 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-900 font-medium">
+          <div class="font-bold text-rose-700 dark:text-rose-400">F</div>
+          <div class="text-slate-600 dark:text-slate-300">0.00</div>
+          <div class="text-[10px] text-slate-400">&lt; 40%</div>
+        </div>
+      </div>
+    </details>
+
+  </main>
+
+  <!-- A4 Preview & Print Modal Container -->
+  <div id="pdf-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] flex flex-col overflow-hidden border border-slate-300 dark:border-slate-700">
+      
+      <!-- Modal Top Bar -->
+      <div class="p-4 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between no-print">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-file-pdf text-emerald-600 dark:text-emerald-400 text-lg"></i>
+          <h3 id="pdf-modal-title" class="font-bold text-slate-800 dark:text-white text-base">A4 Document Preview</h3>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button onclick="downloadCurrentPreviewPDF()" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm transition">
+            <i class="fa-solid fa-download"></i>
+            <span>Download A4 PDF</span>
+          </button>
+          <button onclick="window.print()" class="px-3.5 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-white text-xs sm:text-sm font-medium flex items-center gap-1.5 transition">
+            <i class="fa-solid fa-print"></i>
+            <span class="hidden sm:inline">Print</span>
+          </button>
+          <button onclick="toggleModal('pdf-modal')" class="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-lg">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Printable A4 Document Canvas -->
+      <div class="overflow-y-auto p-4 sm:p-8 flex-1 bg-slate-200/70 dark:bg-slate-950 flex justify-center">
+        <div id="print-modal-container" class="bg-white text-slate-900 w-full max-w-[210mm] p-6 sm:p-10 shadow-lg border border-slate-200 font-sans text-sm rounded-sm">
+          <!-- Content injected dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paste / Import / Add Course Modal -->
+  <div id="parser-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center p-4 overflow-y-auto">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-2xl w-full p-6 border border-slate-200 dark:border-slate-700 space-y-5">
+      <div class="flex justify-between items-center">
+        <h3 class="text-lg font-bold font-display text-slate-800 dark:text-white flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-emerald-600"></i>
+          Add Course or Import Portal Text
+        </h3>
+        <button onclick="toggleModal('parser-modal')" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Quick Add Single Course -->
+      <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-3">Quick Add / Update Single Course</h4>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+          <input id="add-code" type="text" placeholder="Code (e.g. CSE 141)" class="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+          <input id="add-credit" type="number" step="0.25" placeholder="Credit (3.0)" class="px-3 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+          <select id="add-term" class="px-2.5 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+            <option value="Level 1 - Term I">Level 1 - Term I</option>
+            <option value="Level 1 - Term II">Level 1 - Term II</option>
+            <option value="Level 2 - Term I">Level 2 - Term I</option>
+            <option value="Level 2 - Term II">Level 2 - Term II</option>
+            <option value="Level 3 - Term I">Level 3 - Term I</option>
+            <option value="Level 3 - Term II">Level 3 - Term II</option>
+            <option value="Level 4 - Term I">Level 4 - Term I</option>
+            <option value="Level 4 - Term II">Level 4 - Term II</option>
+            <option value="Level 5 - Term I">Level 5 - Term I</option>
+            <option value="Level 5 - Term II">Level 5 - Term II</option>
+          </select>
+          <select id="add-sessional" class="px-2.5 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800">
+            <option value="No">Theory (No)</option>
+            <option value="Yes">Sessional (Yes)</option>
+          </select>
+          <select id="add-grade" class="px-2.5 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 font-bold">
+            <option value="A+">A+ (4.00)</option>
+            <option value="A">A (3.75)</option>
+            <option value="A-">A- (3.50)</option>
+            <option value="B+">B+ (3.25)</option>
+            <option value="B">B (3.00)</option>
+            <option value="B-">B- (2.75)</option>
+            <option value="C+">C+ (2.50)</option>
+            <option value="C">C (2.25)</option>
+            <option value="D">D (2.00)</option>
+            <option value="F">F (0.00)</option>
+          </select>
+        </div>
+        <div class="mt-3 text-right">
+          <button onclick="addSingleCourse()" class="px-4 py-1.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm">
+            <i class="fa-solid fa-plus mr-1"></i> Add / Update Course
+          </button>
+        </div>
+      </div>
+
+      <!-- Raw Text Importer -->
+      <div>
+        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 mb-2">Or Paste Portal Raw Text</h4>
+        <div class="bg-slate-100 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-700 rounded-xl p-3 mb-2.5 text-xs text-slate-700 dark:text-slate-300 space-y-1">
+          <p>১. আপনার <strong>course.cuet.ac.bd</strong>-তে Log in করে <strong>Published Results</strong> মেন্যুতে যান।</p>
+          <p>২. সেখানে <strong>Records per page</strong>-কে <strong>100</strong>-তে সেট করুন।</p>
+          <p>৩. <strong>Ctrl + A</strong> চেপে পুরোটা Copy করুন।</p>
+          <p>৪. নিচে Paste করুন।</p>
+        </div>
+        <textarea id="raw-input-textarea" rows="6" class="w-full text-xs font-mono p-3 rounded-xl border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:ring-2 focus:ring-emerald-500 focus:outline-none" placeholder="এখানে পোর্টাল থেকে কপি করা টেক্সট পেস্ট করুন..."></textarea>
+      </div>
+      
+      <div class="flex justify-end items-center pt-2">
+        <div class="flex space-x-2">
+          <button onclick="toggleModal('parser-modal')" class="px-4 py-2 text-xs rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 font-medium">Close</button>
+          <button onclick="parseAndLoadInput()" class="px-4 py-2 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm">Parse Raw Text</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Notification Toast -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-4 py-3 rounded-xl shadow-xl flex items-center space-x-2 text-sm font-medium">
+    <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400 dark:text-emerald-600"></i>
+    <span id="toast-msg">Action completed!</span>
+  </div>
+
+  <footer class="mt-auto py-6 border-t border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
+    <p class="font-medium">Prepared by Md Ibnul Fiaaz Dhrubo (CUET ME'22)</p>
+  </footer>
+
+  <script>
+    const AUTHOR_SIGNATURE = "Prepared by Md Ibnul Fiaaz Dhrubo (CUET ME'22)";
+
+    // Standard UGC / CUET Grade Point Scale
+    const GRADE_POINTS = {
+      'A+': 4.00,
+      'A':  3.75,
+      'A-': 3.50,
+      'B+': 3.25,
+      'B':  3.00,
+      'B-': 2.75,
+      'C+': 2.50,
+      'C':  2.25,
+      'D':  2.00,
+      'F':  0.00
+    };
+
+    // Standard chronological order of CUET terms (supports Level 1 to Level 5 & Term I to IV)
+    const CHRONO_TERMS = [
+      "Level 1 - Term I",
+      "Level 1 - Term II",
+      "Level 1 - Term III",
+      "Level 1 - Term IV",
+      "Level 2 - Term I",
+      "Level 2 - Term II",
+      "Level 2 - Term III",
+      "Level 2 - Term IV",
+      "Level 3 - Term I",
+      "Level 3 - Term II",
+      "Level 3 - Term III",
+      "Level 3 - Term IV",
+      "Level 4 - Term I",
+      "Level 4 - Term II",
+      "Level 4 - Term III",
+      "Level 4 - Term IV",
+      "Level 5 - Term I",
+      "Level 5 - Term II",
+      "Level 5 - Term III",
+      "Level 5 - Term IV"
+    ];
+
+    // Start completely blank!
+    let currentCourses = [];
+    let selectedTerm = "All"; // 'All' or term string
+    let activePreviewMode = "All"; // 'All', 'Filtered', or term string
+
+    // Optional Student Info State
+    let studentInfo = {
+      name: "",
+      id: ""
+    };
+
+    // Filtering & Sorting State
+    let filterState = {
+      search: "",
+      category: "ALL", // ALL, THEORY, SESSIONAL
+      grade: "ALL",
+      prefix: "ALL"
+    };
+
+    let sortState = {
+      field: "default", // default, code, term, type, credit, grade, points
+      direction: "asc"  // asc, desc
+    };
+
+    function updateStudentInfo() {
+      studentInfo.name = (document.getElementById('student-name-input').value || '').trim();
+      studentInfo.id = (document.getElementById('student-id-input').value || '').trim();
+    }
+
+    // Extract Department Prefix from Course Code (e.g., "ME 331" -> "ME", "Math 131" -> "MATH")
+    function getCoursePrefix(code) {
+      const m = (code || '').trim().match(/^[A-Za-z]+/);
+      return m ? m[0].toUpperCase() : 'OTHER';
+    }
+
+    // Normalize Course Code spacing (e.g. "ME331" -> "ME 331")
+    function normalizeCourseCode(rawCode) {
+      const clean = (rawCode || '').trim().replace(/\s+/g, ' ');
+      const m = clean.match(/^([A-Za-z]+)\s*([0-9]+)$/);
+      if (m) return `${m[1]} ${m[2]}`;
+      return clean;
+    }
+
+    // Formatting helpers
+    function getGradePoint(grade) {
+      const g = (grade || '').trim().toUpperCase();
+      return GRADE_POINTS.hasOwnProperty(g) ? GRADE_POINTS[g] : 0.00;
+    }
+
+    function getGradeBadgeClass(grade) {
+      const g = (grade || '').trim().toUpperCase();
+      if (g.startsWith('A')) return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700';
+      if (g.startsWith('B')) return 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-300 dark:border-blue-700';
+      if (g.startsWith('C')) return 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border-amber-300 dark:border-amber-700';
+      if (g === 'D') return 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300 border-orange-300 dark:border-orange-700';
+      return 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300 border-rose-300 dark:border-rose-700';
+    }
+
+    // Main Calculation Logic
+    function computeMetrics(courses) {
+      let totalCredits = 0;
+      let totalEarnedPoints = 0;
+
+      courses.forEach(c => {
+        const credit = parseFloat(c.credit) || 0;
+        const gp = getGradePoint(c.grade);
+        totalCredits += credit;
+        totalEarnedPoints += (credit * gp);
+      });
+
+      const gpa = totalCredits > 0 ? (totalEarnedPoints / totalCredits) : 0;
+      return {
+        totalCredits: parseFloat(totalCredits.toFixed(2)),
+        totalPoints: parseFloat(totalEarnedPoints.toFixed(2)),
+        gpa: parseFloat(gpa.toFixed(2)),
+        gpaDetailed: gpa.toFixed(3)
+      };
+    }
+
+    function getUniqueTerms() {
+      const termsSet = new Set(currentCourses.map(c => c.term.trim()));
+      return Array.from(termsSet).sort((a, b) => {
+        const ia = CHRONO_TERMS.indexOf(a);
+        const ib = CHRONO_TERMS.indexOf(b);
+        if (ia !== -1 && ib !== -1) return ia - ib;
+        return a.localeCompare(b);
+      });
+    }
+
+    function getUniquePrefixes() {
+      const prefixSet = new Set(currentCourses.map(c => getCoursePrefix(c.code)));
+      return Array.from(prefixSet).sort();
+    }
+
+    // Toggle Empty State vs Loaded Dashboard State
+    function syncVisibilityState() {
+      const isEmpty = currentCourses.length === 0;
+      const emptySection = document.getElementById('empty-onboarding-section');
+      const dashWrapper = document.getElementById('dashboard-content-wrapper');
+      const clearBtn = document.getElementById('clear-data-btn');
+      const previewAllBtn = document.getElementById('preview-all-btn');
+      const pdfAllBtn = document.getElementById('pdf-all-btn');
+
+      if (isEmpty) {
+        emptySection.classList.remove('hidden');
+        dashWrapper.classList.add('hidden');
+        clearBtn.classList.add('hidden');
+        previewAllBtn.classList.add('hidden');
+        pdfAllBtn.classList.add('hidden');
+      } else {
+        emptySection.classList.add('hidden');
+        dashWrapper.classList.remove('hidden');
+        clearBtn.classList.remove('hidden');
+        previewAllBtn.classList.remove('hidden');
+        pdfAllBtn.classList.remove('hidden');
+      }
+    }
+
+    // Populate Department Prefix Dropdown & Quick Pills
+    function renderPrefixFilterOptions() {
+      const prefixes = getUniquePrefixes();
+      const select = document.getElementById('filter-prefix');
+      const pillsContainer = document.getElementById('prefix-pills-container');
+
+      const currentVal = filterState.prefix;
+      select.innerHTML = `<option value="ALL">All Departments (${currentCourses.length})</option>`;
+      prefixes.forEach(p => {
+        const count = currentCourses.filter(c => getCoursePrefix(c.code) === p).length;
+        select.innerHTML += `<option value="${p}" ${currentVal === p ? 'selected' : ''}>${p} (${count})</option>`;
+      });
+
+      // Render quick filter pills
+      if (prefixes.length > 1) {
+        let pillsHtml = `<span class="text-[11px] text-slate-400 mr-1">Dept Quick Filter:</span>`;
+        pillsHtml += `
+          <button onclick="setPrefixFilter('ALL')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+            filterState.prefix === 'ALL'
+              ? 'bg-emerald-600 text-white'
+              : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+          }">All</button>
+        `;
+        prefixes.forEach(p => {
+          const active = filterState.prefix === p;
+          pillsHtml += `
+            <button onclick="setPrefixFilter('${p}')" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${
+              active
+                ? 'bg-emerald-600 text-white'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+            }">${p}</button>
+          `;
+        });
+        pillsContainer.innerHTML = pillsHtml;
+      } else {
+        pillsContainer.innerHTML = '';
+      }
+    }
+
+    function setPrefixFilter(prefix) {
+      filterState.prefix = prefix;
+      document.getElementById('filter-prefix').value = prefix;
+      renderPrefixFilterOptions();
+      renderActiveTermView();
+    }
+
+    function applyFilters() {
+      filterState.search = (document.getElementById('filter-search').value || '').trim().toLowerCase();
+      filterState.category = document.getElementById('filter-category').value;
+      filterState.grade = document.getElementById('filter-grade').value;
+      filterState.prefix = document.getElementById('filter-prefix').value;
+      renderPrefixFilterOptions();
+      renderActiveTermView();
+    }
+
+    function resetFiltersAndSort() {
+      filterState = { search: "", category: "ALL", grade: "ALL", prefix: "ALL" };
+      sortState = { field: "default", direction: "asc" };
+      document.getElementById('filter-search').value = "";
+      document.getElementById('filter-category').value = "ALL";
+      document.getElementById('filter-grade').value = "ALL";
+      document.getElementById('filter-prefix').value = "ALL";
+      document.getElementById('sort-field-select').value = "default";
+      updateSortDirectionIcon();
+      renderPrefixFilterOptions();
+      renderActiveTermView();
+    }
+
+    function handleSortDropdownChange() {
+      const val = document.getElementById('sort-field-select').value;
+      sortState.field = val;
+      if (val === 'grade' || val === 'credit' || val === 'points') {
+        sortState.direction = 'desc';
+      } else {
+        sortState.direction = 'asc';
+      }
+      updateSortDirectionIcon();
+      renderActiveTermView();
+    }
+
+    function toggleSortDirection() {
+      sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+      updateSortDirectionIcon();
+      renderActiveTermView();
+    }
+
+    function sortByColumn(field) {
+      if (sortState.field === field) {
+        sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortState.field = field;
+        sortState.direction = (field === 'grade' || field === 'credit' || field === 'points') ? 'desc' : 'asc';
+      }
+      document.getElementById('sort-field-select').value = field;
+      updateSortDirectionIcon();
+      renderActiveTermView();
+    }
+
+    function updateSortDirectionIcon() {
+      const icon = document.getElementById('sort-dir-icon');
+      if (!icon) return;
+      if (sortState.direction === 'asc') {
+        icon.className = 'fa-solid fa-arrow-up-wide-short';
+      } else {
+        icon.className = 'fa-solid fa-arrow-down-wide-short';
+      }
+    }
+
+    // Get Filtered and Sorted Courses for Current View
+    function getFilteredAndSortedCourses() {
+      let list = currentCourses.map((c, originalIndex) => ({ ...c, _idx: originalIndex }));
+
+      // 1. Term Tab Filter
+      if (selectedTerm !== 'All') {
+        list = list.filter(c => c.term.trim() === selectedTerm);
+      }
+
+      // 2. Search Query Filter
+      if (filterState.search) {
+        list = list.filter(c =>
+          c.code.toLowerCase().includes(filterState.search) ||
+          c.term.toLowerCase().includes(filterState.search) ||
+          (c.type || '').toLowerCase().includes(filterState.search)
+        );
+      }
+
+      // 3. Category Filter (Theory vs Sessional)
+      if (filterState.category === 'THEORY') {
+        list = list.filter(c => (c.sessional || '').toLowerCase() !== 'yes');
+      } else if (filterState.category === 'SESSIONAL') {
+        list = list.filter(c => (c.sessional || '').toLowerCase() === 'yes');
+      }
+
+      // 4. Grade Filter
+      if (filterState.grade !== 'ALL') {
+        list = list.filter(c => (c.grade || '').trim().toUpperCase() === filterState.grade);
+      }
+
+      // 5. Department Prefix Filter
+      if (filterState.prefix !== 'ALL') {
+        list = list.filter(c => getCoursePrefix(c.code) === filterState.prefix);
+      }
+
+      // 6. Sorting
+      if (sortState.field !== 'default') {
+        const dir = sortState.direction === 'asc' ? 1 : -1;
+        list.sort((a, b) => {
+          if (sortState.field === 'code') {
+            return a.code.localeCompare(b.code, undefined, { numeric: true }) * dir;
+          }
+          if (sortState.field === 'term') {
+            const ia = CHRONO_TERMS.indexOf(a.term.trim());
+            const ib = CHRONO_TERMS.indexOf(b.term.trim());
+            const cmp = (ia !== -1 && ib !== -1) ? (ia - ib) : a.term.localeCompare(b.term);
+            if (cmp !== 0) return cmp * dir;
+            return a.code.localeCompare(b.code, undefined, { numeric: true });
+          }
+          if (sortState.field === 'type') {
+            const ta = (a.sessional || '').toLowerCase() === 'yes' ? 'Sessional' : 'Theory';
+            const tb = (b.sessional || '').toLowerCase() === 'yes' ? 'Sessional' : 'Theory';
+            const cmp = ta.localeCompare(tb);
+            if (cmp !== 0) return cmp * dir;
+            return a.code.localeCompare(b.code, undefined, { numeric: true });
+          }
+          if (sortState.field === 'credit') {
+            const diff = (parseFloat(a.credit) || 0) - (parseFloat(b.credit) || 0);
+            if (diff !== 0) return diff * dir;
+            return a.code.localeCompare(b.code, undefined, { numeric: true });
+          }
+          if (sortState.field === 'grade') {
+            const diff = getGradePoint(a.grade) - getGradePoint(b.grade);
+            if (diff !== 0) return diff * dir;
+            return a.code.localeCompare(b.code, undefined, { numeric: true });
+          }
+          if (sortState.field === 'points') {
+            const pa = (parseFloat(a.credit) || 0) * getGradePoint(a.grade);
+            const pb = (parseFloat(b.credit) || 0) * getGradePoint(b.grade);
+            const diff = pa - pb;
+            if (diff !== 0) return diff * dir;
+            return a.code.localeCompare(b.code, undefined, { numeric: true });
+          }
+          return (a._idx - b._idx) * dir;
+        });
+      }
+
+      return list;
+    }
+
+    function hasActiveSubFilters() {
+      return (
+        filterState.search !== "" ||
+        filterState.category !== "ALL" ||
+        filterState.grade !== "ALL" ||
+        filterState.prefix !== "ALL" ||
+        sortState.field !== "default"
+      );
+    }
+
+    // Render Stats
+    function updateDashboardStats() {
+      syncVisibilityState();
+      if (currentCourses.length === 0) return;
+
+      const allMetrics = computeMetrics(currentCourses);
+      document.getElementById('stat-cgpa').innerText = allMetrics.gpa.toFixed(2);
+      document.getElementById('stat-credits').innerText = allMetrics.totalCredits.toFixed(2);
+      document.getElementById('stat-points').innerText = allMetrics.totalPoints.toFixed(2);
+      document.getElementById('stat-courses-count').innerText = currentCourses.length;
+
+      const terms = getUniqueTerms();
+      document.getElementById('stat-terms').innerText = terms.length;
+      if (terms.length > 0) {
+        document.getElementById('stat-term-range').innerText =
+          terms.length === 1 ? terms[0] : `${terms[0]} to ${terms[terms.length - 1]}`;
+      }
+
+      // Standing
+      const standingElem = document.getElementById('stat-class-standing');
+      if (allMetrics.gpa >= 3.75) {
+        standingElem.innerText = "Distinction / First Class with Honours";
+      } else if (allMetrics.gpa >= 3.00) {
+        standingElem.innerText = "First Class";
+      } else if (allMetrics.gpa >= 2.25) {
+        standingElem.innerText = "Second Class";
+      } else {
+        standingElem.innerText = "Pass / Satisfactory";
+      }
+
+      renderPrefixFilterOptions();
+      renderTermSummaryCards(terms);
+    }
+
+    function renderTermSummaryCards(terms) {
+      const container = document.getElementById('term-summary-cards');
+      if (!container) return;
+      container.innerHTML = '';
+
+      let cumulativeCredits = 0;
+      let cumulativePoints = 0;
+
+      terms.forEach(term => {
+        const termCourses = currentCourses.filter(c => c.term.trim() === term);
+        const m = computeMetrics(termCourses);
+
+        const sessionalCount = termCourses.filter(c => (c.sessional || '').toLowerCase() === 'yes').length;
+        const theoryCount = termCourses.length - sessionalCount;
+
+        cumulativeCredits += m.totalCredits;
+        cumulativePoints += m.totalPoints;
+        const runningCGPA = cumulativeCredits > 0 ? (cumulativePoints / cumulativeCredits).toFixed(2) : '0.00';
+        const progressPercent = Math.min(100, Math.max(5, (m.gpa / 4.0) * 100)).toFixed(1);
+
+        const card = document.createElement('div');
+        card.className = "p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 flex flex-col justify-between hover:border-emerald-400 dark:hover:border-emerald-500 transition shadow-sm";
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white font-display">${term}</span>
+              <span class="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                SGPA ${m.gpa.toFixed(2)}
+              </span>
+            </div>
+
+            <!-- Visual SGPA Progress Bar -->
+            <div class="mt-3">
+              <div class="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500" style="width: ${progressPercent}%"></div>
+              </div>
+            </div>
+
+            <!-- Credits & Theory/Sessional Breakdown -->
+            <div class="mt-3 grid grid-cols-2 gap-2 text-xs bg-white dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-200/70 dark:border-slate-700/70">
+              <div>
+                <div class="text-[10px] uppercase text-slate-400 font-semibold">Total Credits</div>
+                <div class="font-bold text-slate-800 dark:text-slate-100 mt-0.5">${m.totalCredits.toFixed(2)} Cr <span class="font-normal text-slate-400">(${m.totalPoints.toFixed(2)} Pts)</span></div>
+              </div>
+              <div>
+                <div class="text-[10px] uppercase text-slate-400 font-semibold">Courses (${termCourses.length})</div>
+                <div class="font-semibold text-slate-700 dark:text-slate-200 mt-0.5">${theoryCount} Theory &bull; ${sessionalCount} Lab</div>
+              </div>
+            </div>
+
+            <div class="mt-2.5 flex justify-between items-center text-[11px] px-0.5">
+              <span class="text-slate-400">Running Cumulative GPA:</span>
+              <span class="font-bold text-emerald-700 dark:text-emerald-400 font-mono">${runningCGPA}</span>
+            </div>
+          </div>
+
+          <div class="mt-3.5 pt-3 border-t border-slate-200 dark:border-slate-700 grid grid-cols-2 gap-2">
+            <button onclick="selectTab('${term}')" class="px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition flex items-center justify-center gap-1.5">
+              <i class="fa-solid fa-table-list text-slate-400"></i>
+              <span>View Details</span>
+            </button>
+            <button onclick="generateVectorPDF('${term}')" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition flex items-center justify-center gap-1.5 shadow-sm">
+              <i class="fa-solid fa-file-pdf"></i>
+              <span>Download PDF</span>
+            </button>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // Render Navigation Tabs
+    function renderTabs() {
+      const terms = getUniqueTerms();
+      const nav = document.getElementById('term-tabs-nav');
+      nav.innerHTML = '';
+
+      // All Terms Button
+      const allBtn = document.createElement('button');
+      allBtn.className = `px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition shadow-sm ${
+        selectedTerm === 'All' 
+          ? 'bg-emerald-600 text-white shadow-emerald-500/20' 
+          : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+      }`;
+      allBtn.innerHTML = `<i class="fa-solid fa-layer-group mr-1.5"></i> All Courses (${currentCourses.length})`;
+      allBtn.onclick = () => selectTab('All');
+      nav.appendChild(allBtn);
+
+      // Buttons for each term
+      terms.forEach(term => {
+        const count = currentCourses.filter(c => c.term.trim() === term).length;
+        const btn = document.createElement('button');
+        btn.className = `px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition shadow-sm ${
+          selectedTerm === term 
+            ? 'bg-emerald-600 text-white shadow-emerald-500/20' 
+            : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700'
+        }`;
+        btn.innerText = `${term} (${count})`;
+        btn.onclick = () => selectTab(term);
+        nav.appendChild(btn);
+      });
+    }
+
+    function selectTab(term) {
+      selectedTerm = term;
+      renderTabs();
+      renderActiveTermView();
+    }
+
+    function getSortIndicatorHtml(field) {
+      if (sortState.field !== field) {
+        return `<i class="fa-solid fa-sort text-slate-300 dark:text-slate-600 ml-1 text-[10px]"></i>`;
+      }
+      return sortState.direction === 'asc'
+        ? `<i class="fa-solid fa-sort-up text-emerald-600 dark:text-emerald-400 ml-1 text-[11px]"></i>`
+        : `<i class="fa-solid fa-sort-down text-emerald-600 dark:text-emerald-400 ml-1 text-[11px]"></i>`;
+    }
+
+    function deleteCourseByIndex(originalIndex) {
+      if (originalIndex >= 0 && originalIndex < currentCourses.length) {
+        const removed = currentCourses.splice(originalIndex, 1)[0];
+        showToast(`Removed ${removed.code}`);
+        updateDashboardStats();
+        renderTabs();
+        renderActiveTermView();
+      }
+    }
+
+    // Render Course Table for Active View
+    function renderActiveTermView() {
+      const container = document.getElementById('active-term-container');
+      if (currentCourses.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+
+      const filtered = getFilteredAndSortedCourses();
+      const metrics = computeMetrics(filtered);
+      const isFiltered = hasActiveSubFilters();
+
+      let headerAction = '';
+      if (selectedTerm !== 'All' && !isFiltered) {
+        headerAction = `
+          <div class="flex items-center gap-2">
+            <button onclick="openTermPDF('${selectedTerm}')" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-eye"></i>
+              <span>Preview</span>
+            </button>
+            <button onclick="generateVectorPDF('${selectedTerm}')" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+              <i class="fa-solid fa-file-pdf"></i>
+              <span>Download ${selectedTerm} PDF</span>
+            </button>
+          </div>
+        `;
+      } else if (isFiltered) {
+        headerAction = `
+          <div class="flex items-center gap-2">
+            <button onclick="generateVectorPDF('Filtered')" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+              <i class="fa-solid fa-file-pdf"></i>
+              <span>Export Current View PDF</span>
+            </button>
+          </div>
+        `;
+      } else {
+        headerAction = `
+          <div class="flex items-center gap-2">
+            <button onclick="openTranscriptModal()" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition">
+              <i class="fa-solid fa-eye"></i>
+              <span>Preview All</span>
+            </button>
+            <button onclick="generateVectorPDF('All')" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition">
+              <i class="fa-solid fa-file-pdf"></i>
+              <span>Download Full Report PDF</span>
+            </button>
+          </div>
+        `;
+      }
+
+      let rowsHtml = '';
+      if (filtered.length === 0) {
+        rowsHtml = `
+          <tr>
+            <td colspan="${selectedTerm === 'All' ? '9' : '8'}" class="py-10 text-center text-slate-400 text-xs">
+              No courses match your current filter criteria. <button onclick="resetFiltersAndSort()" class="text-emerald-600 font-semibold underline ml-1">Reset Filters</button>
+            </td>
+          </tr>
+        `;
+      } else {
+        filtered.forEach((course, index) => {
+          const gp = getGradePoint(course.grade);
+          const credit = parseFloat(course.credit) || 0;
+          const cp = (credit * gp).toFixed(2);
+          const isSessional = (course.sessional || '').toLowerCase() === 'yes';
+
+          rowsHtml += `
+            <tr class="border-b border-slate-100 dark:border-slate-700/60 hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition-colors">
+              <td class="py-3 px-4 text-xs text-slate-400 font-mono">${index + 1}</td>
+              <td class="py-3 px-4 font-semibold text-slate-800 dark:text-slate-100 font-mono">${course.code}</td>
+              <td class="py-3 px-4 text-xs">
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${isSessional ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'}">
+                  ${isSessional ? 'Sessional' : 'Theory'}
+                </span>
+              </td>
+              ${selectedTerm === 'All' ? `<td class="py-3 px-4 text-xs font-medium text-slate-600 dark:text-slate-300">${course.term}</td>` : ''}
+              <td class="py-3 px-4 text-xs font-bold text-slate-700 dark:text-slate-200">${credit.toFixed(2)}</td>
+              <td class="py-3 px-4">
+                <span class="inline-block px-2.5 py-0.5 rounded-md font-bold text-xs border ${getGradeBadgeClass(course.grade)}">
+                  ${course.grade}
+                </span>
+              </td>
+              <td class="py-3 px-4 text-xs font-medium text-slate-600 dark:text-slate-300">${gp.toFixed(2)}</td>
+              <td class="py-3 px-4 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400 text-right">${cp}</td>
+              <td class="py-3 px-3 text-right">
+                <button onclick="deleteCourseByIndex(${course._idx})" title="Remove Course" class="text-slate-300 hover:text-rose-500 dark:text-slate-600 dark:hover:text-rose-400 text-xs transition">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </td>
+            </tr>
+          `;
+        });
+      }
+
+      container.innerHTML = `
+        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+          
+          <!-- Term Header Bar -->
+          <div class="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3 bg-slate-50/50 dark:bg-slate-800/50">
+            <div>
+              <h2 class="text-base sm:text-lg font-bold font-display text-slate-900 dark:text-white flex items-center gap-2">
+                <span>${selectedTerm === 'All' ? 'All Completed Courses' : selectedTerm}</span>
+                <span class="text-xs px-2.5 py-0.5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-sans font-medium">${filtered.length} Courses</span>
+              </h2>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Click any column header below to sort ascending or descending
+              </p>
+            </div>
+            
+            <div class="flex items-center gap-3">
+              <div class="text-right pr-2 border-r border-slate-200 dark:border-slate-700">
+                <div class="text-xs text-slate-400">${isFiltered ? 'Filtered GPA' : (selectedTerm === 'All' ? 'CGPA' : 'Term SGPA')}</div>
+                <div class="text-lg sm:text-xl font-extrabold text-emerald-600 dark:text-emerald-400 font-display">${metrics.gpa.toFixed(2)}</div>
+              </div>
+              <div class="text-right pr-3">
+                <div class="text-xs text-slate-400">Credits</div>
+                <div class="text-lg sm:text-xl font-extrabold text-slate-800 dark:text-white font-display">${metrics.totalCredits.toFixed(2)}</div>
+              </div>
+              ${headerAction}
+            </div>
+          </div>
+
+          <!-- Table Container -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm border-collapse select-none">
+              <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-700 bg-slate-100/60 dark:bg-slate-800/80 text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  <th class="py-3 px-4 w-12">#</th>
+                  <th onclick="sortByColumn('code')" class="py-3 px-4 font-bold cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition">
+                    Course Code ${getSortIndicatorHtml('code')}
+                  </th>
+                  <th onclick="sortByColumn('type')" class="py-3 px-4 font-bold cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition">
+                    Type ${getSortIndicatorHtml('type')}
+                  </th>
+                  ${selectedTerm === 'All' ? `
+                  <th onclick="sortByColumn('term')" class="py-3 px-4 font-bold cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition">
+                    Level-Term ${getSortIndicatorHtml('term')}
+                  </th>` : ''}
+                  <th onclick="sortByColumn('credit')" class="py-3 px-4 font-bold cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition">
+                    Credits ${getSortIndicatorHtml('credit')}
+                  </th>
+                  <th onclick="sortByColumn('grade')" class="py-3 px-4 font-bold cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition">
+                    Grade ${getSortIndicatorHtml('grade')}
+                  </th>
+                  <th onclick="sortByColumn('grade')" class="py-3 px-4 cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition">
+                    Grade Point
+                  </th>
+                  <th onclick="sortByColumn('points')" class="py-3 px-4 text-right font-bold cursor-pointer hover:text-emerald-600 dark:hover:text-emerald-400 transition">
+                    Points (Cr &times; GP) ${getSortIndicatorHtml('points')}
+                  </th>
+                  <th class="py-3 px-3 w-8"></th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+              <tfoot>
+                <tr class="bg-slate-50 dark:bg-slate-900/60 font-bold border-t border-slate-200 dark:border-slate-700 text-xs">
+                  <td colspan="${selectedTerm === 'All' ? '4' : '3'}" class="py-3.5 px-4 text-slate-700 dark:text-slate-300">
+                    Summary (${filtered.length} Courses):
+                  </td>
+                  <td class="py-3.5 px-4 text-slate-900 dark:text-white">${metrics.totalCredits.toFixed(2)}</td>
+                  <td colspan="2" class="py-3.5 px-4 text-emerald-600 dark:text-emerald-400">
+                    GPA: ${metrics.gpa.toFixed(2)}
+                  </td>
+                  <td class="py-3.5 px-4 text-right font-mono text-emerald-600 dark:text-emerald-400">${metrics.totalPoints.toFixed(2)}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+        </div>
+      `;
+    }
+
+    // Helper to build conditional student info HTML block for Preview Modal
+    function getStudentHeaderHtml() {
+      updateStudentInfo();
+      if (!studentInfo.name && !studentInfo.id) return '';
+      return `
+        <div style="display: flex; flex-wrap: wrap; gap: 20px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; font-size: 12px; color: #1e293b;">
+          ${studentInfo.name ? `<div><span style="color: #64748b; font-weight: 600;">Student Name:</span> <strong style="color: #0f172a;">${studentInfo.name}</strong></div>` : ''}
+          ${studentInfo.id ? `<div><span style="color: #64748b; font-weight: 600;">Student ID:</span> <strong style="font-family: monospace; color: #0f172a;">${studentInfo.id}</strong></div>` : ''}
+        </div>
+      `;
+    }
+
+    // Helper to calculate cumulative GPA up to a specific term
+    function getCumulativeUpToTerm(targetTerm) {
+      const terms = getUniqueTerms();
+      const termIndex = terms.indexOf(targetTerm);
+      let cumCredits = 0;
+      let cumPoints = 0;
+      for (let i = 0; i <= termIndex && i < terms.length; i++) {
+        const tCourses = currentCourses.filter(c => c.term.trim() === terms[i]);
+        const m = computeMetrics(tCourses);
+        cumCredits += m.totalCredits;
+        cumPoints += m.totalPoints;
+      }
+      return {
+        cumCredits: cumCredits.toFixed(2),
+        cumPoints: cumPoints.toFixed(2),
+        cumGPA: cumCredits > 0 ? (cumPoints / cumCredits).toFixed(2) : '0.00'
+      };
+    }
+
+    // Personal Grade Sheet Preview for a Specific Term
+    function openTermPDF(term) {
+      activePreviewMode = term;
+      const termCourses = currentCourses.filter(c => c.term.trim() === term);
+      const metrics = computeMetrics(termCourses);
+      const cumStats = getCumulativeUpToTerm(term);
+      const studentBlock = getStudentHeaderHtml();
+
+      let rows = '';
+      termCourses.forEach((c, idx) => {
+        const credit = parseFloat(c.credit) || 0;
+        const gp = getGradePoint(c.grade);
+        const cp = (credit * gp).toFixed(2);
+        const isSessional = (c.sessional || '').toLowerCase() === 'yes';
+
+        rows += `
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 8px 10px; font-size: 12px; text-align: center; color: #64748b;">${idx + 1}</td>
+            <td style="padding: 8px 10px; font-size: 12px; font-weight: 700; font-family: monospace; color: #0f172a;">${c.code}</td>
+            <td style="padding: 8px 10px; font-size: 12px; color: #334155;">${isSessional ? 'Sessional' : 'Theory'}</td>
+            <td style="padding: 8px 10px; font-size: 12px; text-align: center; font-weight: 600;">${credit.toFixed(2)}</td>
+            <td style="padding: 8px 10px; font-size: 12px; text-align: center; font-weight: 700; color: #047857;">${c.grade}</td>
+            <td style="padding: 8px 10px; font-size: 12px; text-align: center;">${gp.toFixed(2)}</td>
+            <td style="padding: 8px 10px; font-size: 12px; text-align: right; font-weight: 700; font-family: monospace;">${cp}</td>
+          </tr>
+        `;
+      });
+
+      const template = `
+        <div style="font-family: 'Inter', sans-serif; color: #0f172a; line-height: 1.45; display: flex; flex-direction: column; min-height: 250mm; justify-content: space-between;">
+          <div>
+            <!-- Clean Personal Header -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #059669; padding-bottom: 12px; margin-bottom: 14px;">
+              <div>
+                <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #059669;">Academic Grade Report</div>
+                <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 2px 0 0 0;">${term} Grade Sheet</h1>
+              </div>
+              <div style="text-align: right; font-size: 11px; color: #64748b;">
+                <div>Total Courses: <strong>${termCourses.length}</strong></div>
+                <div>Generated: ${new Date().toLocaleDateString('en-GB')}</div>
+              </div>
+            </div>
+
+            ${studentBlock}
+
+            <!-- Summary Metric Cards -->
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+              <div style="background: #ecfdf5; border: 1px solid #a7f3d0; padding: 12px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 10px; color: #047857; text-transform: uppercase; font-weight: 700;">Term GPA (SGPA)</div>
+                <div style="font-size: 24px; font-weight: 800; color: #065f46; margin-top: 2px;">${metrics.gpa.toFixed(2)}</div>
+              </div>
+              <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 10px; color: #475569; text-transform: uppercase; font-weight: 700;">Term Credits Completed</div>
+                <div style="font-size: 24px; font-weight: 800; color: #1e293b; margin-top: 2px;">${metrics.totalCredits.toFixed(2)}</div>
+              </div>
+              <div style="background: #f8fafc; border: 1px solid #cbd5e1; padding: 12px; border-radius: 8px; text-align: center;">
+                <div style="font-size: 10px; color: #475569; text-transform: uppercase; font-weight: 700;">Cumulative CGPA</div>
+                <div style="font-size: 24px; font-weight: 800; color: #1e293b; margin-top: 2px;">${cumStats.cumGPA}</div>
+              </div>
+            </div>
+
+            <!-- Courses Table -->
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #cbd5e1;">
+              <thead>
+                <tr style="background-color: #059669; color: #ffffff; font-size: 11px; text-transform: uppercase;">
+                  <th style="padding: 9px 10px; text-align: center; width: 40px;">#</th>
+                  <th style="padding: 9px 10px; text-align: left;">Course Code</th>
+                  <th style="padding: 9px 10px; text-align: left;">Course Type</th>
+                  <th style="padding: 9px 10px; text-align: center;">Credit</th>
+                  <th style="padding: 9px 10px; text-align: center;">Grade</th>
+                  <th style="padding: 9px 10px; text-align: center;">Grade Point</th>
+                  <th style="padding: 9px 10px; text-align: right;">Points (Cr &times; GP)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows}
+              </tbody>
+              <tfoot>
+                <tr style="background-color: #f1f5f9; font-weight: 700; border-top: 2px solid #94a3b8;">
+                  <td colspan="3" style="padding: 9px 10px; font-size: 12px;">Term Total / Summary</td>
+                  <td style="padding: 9px 10px; font-size: 12px; text-align: center;">${metrics.totalCredits.toFixed(2)}</td>
+                  <td colspan="2" style="padding: 9px 10px; font-size: 12px; text-align: center; color: #047857;">SGPA: ${metrics.gpa.toFixed(2)}</td>
+                  <td style="padding: 9px 10px; font-size: 12px; text-align: right; font-family: monospace;">${metrics.totalPoints.toFixed(2)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <!-- Personal Footer -->
+          <div style="border-top: 1px solid #cbd5e1; padding-top: 10px; text-align: center; font-size: 12px; font-weight: 600; color: #334155;">
+            ${AUTHOR_SIGNATURE}
+          </div>
+        </div>
+      `;
+
+      document.getElementById('pdf-modal-title').innerText = `${term} Grade Sheet`;
+      document.getElementById('print-modal-container').innerHTML = template;
+      toggleModal('pdf-modal');
+    }
+
+    // Complete Personal Academic Report Preview for ALL Terms
+    function openTranscriptModal() {
+      activePreviewMode = "All";
+      const allMetrics = computeMetrics(currentCourses);
+      const terms = getUniqueTerms();
+      const studentBlock = getStudentHeaderHtml();
+
+      let termsHtml = '';
+      let cumCredits = 0;
+      let cumPoints = 0;
+
+      terms.forEach(term => {
+        const tCourses = currentCourses.filter(c => c.term.trim() === term);
+        const tMetrics = computeMetrics(tCourses);
+        cumCredits += tMetrics.totalCredits;
+        cumPoints += tMetrics.totalPoints;
+        const curCGPA = (cumPoints / cumCredits).toFixed(2);
+
+        let trRows = '';
+        tCourses.forEach((c, idx) => {
+          const cr = parseFloat(c.credit) || 0;
+          const gp = getGradePoint(c.grade);
+          const cp = (cr * gp).toFixed(2);
+          trRows += `
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+              <td style="padding: 5px 8px; font-size: 11px; color: #64748b; width: 32px;">${idx + 1}</td>
+              <td style="padding: 5px 8px; font-size: 11px; font-family: monospace; font-weight: 700;">${c.code}</td>
+              <td style="padding: 5px 8px; font-size: 11px;">${(c.sessional || '').toLowerCase() === 'yes' ? 'Sessional' : 'Theory'}</td>
+              <td style="padding: 5px 8px; font-size: 11px; text-align: center;">${cr.toFixed(2)}</td>
+              <td style="padding: 5px 8px; font-size: 11px; text-align: center; font-weight: 700; color: #047857;">${c.grade}</td>
+              <td style="padding: 5px 8px; font-size: 11px; text-align: center;">${gp.toFixed(2)}</td>
+              <td style="padding: 5px 8px; font-size: 11px; text-align: right; font-family: monospace; font-weight: 600;">${cp}</td>
+            </tr>
+          `;
+        });
+
+        termsHtml += `
+          <div style="margin-bottom: 14px; break-inside: avoid; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; background: #f1f5f9; padding: 6px 10px; font-size: 12px; font-weight: 700; border-bottom: 1px solid #cbd5e1;">
+              <span style="color: #065f46;">${term}</span>
+              <span>SGPA: <span style="color: #047857;">${tMetrics.gpa.toFixed(2)}</span> &bull; Credits: ${tMetrics.totalCredits.toFixed(2)} &bull; Running CGPA: ${curCGPA}</span>
+            </div>
+            <table style="width: 100%; border-collapse: collapse;">
+              <thead>
+                <tr style="border-bottom: 1px solid #cbd5e1; background: #f8fafc; font-size: 10px; text-transform: uppercase; color: #475569;">
+                  <th style="text-align: left; padding: 4px 8px;">#</th>
+                  <th style="text-align: left; padding: 4px 8px;">Course Code</th>
+                  <th style="text-align: left; padding: 4px 8px;">Type</th>
+                  <th style="text-align: center; padding: 4px 8px;">Credit</th>
+                  <th style="text-align: center; padding: 4px 8px;">Grade</th>
+                  <th style="text-align: center; padding: 4px 8px;">GP</th>
+                  <th style="text-align: right; padding: 4px 8px;">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${trRows}
+              </tbody>
+            </table>
+          </div>
+        `;
+      });
+
+      const template = `
+        <div style="font-family: 'Inter', sans-serif; color: #0f172a; line-height: 1.4;">
+          <!-- Clean Personal Header -->
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #059669; padding-bottom: 10px; margin-bottom: 14px;">
+            <div>
+              <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #059669;">Personal Academic Summary</div>
+              <h1 style="font-size: 20px; font-weight: 800; color: #0f172a; margin: 2px 0 0 0;">Complete Academic Grade Report</h1>
+            </div>
+            <div style="text-align: right; font-size: 11px; color: #64748b;">
+              <div>Completed Terms: <strong>${terms.length}</strong> | Courses: <strong>${currentCourses.length}</strong></div>
+            </div>
+          </div>
+
+          ${studentBlock}
+
+          <!-- Overall Summary Banner -->
+          <div style="display: flex; justify-content: space-between; align-items: center; background: #ecfdf5; border: 1.5px solid #a7f3d0; border-radius: 8px; padding: 10px 16px; margin-bottom: 14px;">
+            <div>
+              <div style="font-size: 11px; color: #065f46; font-weight: 700;">OVERALL CUMULATIVE GPA (CGPA)</div>
+              <div style="font-size: 26px; font-weight: 800; color: #047857;">${allMetrics.gpa.toFixed(2)} <span style="font-size: 12px; font-weight: 600; color: #065f46;">/ 4.00</span></div>
+            </div>
+            <div style="text-align: right; font-size: 11px; color: #1e293b;">
+              <p style="margin: 2px 0;"><strong>Total Credits Earned:</strong> ${allMetrics.totalCredits.toFixed(2)}</p>
+              <p style="margin: 2px 0;"><strong>Total Grade Points:</strong> ${allMetrics.totalPoints.toFixed(2)}</p>
+            </div>
+          </div>
+
+          <!-- Term by Term Breakdown -->
+          <div>
+            ${termsHtml}
+          </div>
+
+          <!-- Personal Footer -->
+          <div style="margin-top: 18px; border-top: 1px solid #cbd5e1; padding-top: 10px; text-align: center; font-size: 12px; font-weight: 600; color: #334155;">
+            ${AUTHOR_SIGNATURE}
+          </div>
+        </div>
+      `;
+
+      document.getElementById('pdf-modal-title').innerText = 'Complete Academic Grade Report';
+      document.getElementById('print-modal-container').innerHTML = template;
+      toggleModal('pdf-modal');
+    }
+
+    function downloadCurrentPreviewPDF() {
+      generateVectorPDF(activePreviewMode);
+    }
+
+    // Draw conditional Student Name & ID bar in jsPDF and return updated Y position
+    function drawPdfStudentBar(doc, margin, usableWidth, startY) {
+      updateStudentInfo();
+      if (!studentInfo.name && !studentInfo.id) return startY;
+
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(203, 213, 225);
+      doc.roundedRect(margin, startY, usableWidth, 9, 1.5, 1.5, 'FD');
+
+      doc.setFontSize(9.5);
+      let textX = margin + 4;
+
+      if (studentInfo.name) {
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text('Student Name:', textX, startY + 6);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 23, 42);
+        doc.text(studentInfo.name, textX + 25, startY + 6);
+      }
+
+      if (studentInfo.id) {
+        const idLabelX = studentInfo.name ? (margin + usableWidth - 55) : textX;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text('Student ID:', idLabelX, startY + 6);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(15, 23, 42);
+        doc.text(studentInfo.id, idLabelX + 19, startY + 6);
+      }
+
+      return startY + 13;
+    }
+
+    // 100% Crisp Vector A4 PDF Generation using jsPDF & autoTable
+    function generateVectorPDF(mode) {
+      if (!window.jspdf || !window.jspdf.jsPDF) {
+        showToast('PDF library still loading, using print dialog...');
+        window.print();
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pageWidth = doc.internal.pageSize.getWidth();   // 210
+      const pageHeight = doc.internal.pageSize.getHeight(); // 297
+      const margin = 14;
+      const usableWidth = pageWidth - (margin * 2);         // 182mm
+
+      // Stamp personal footer on every page
+      const addPersonalFooter = () => {
+        const totalPages = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= totalPages; i++) {
+          doc.setPage(i);
+          doc.setDrawColor(203, 213, 225);
+          doc.setLineWidth(0.3);
+          doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9.5);
+          doc.setTextColor(51, 65, 85);
+          doc.text(AUTHOR_SIGNATURE, margin, pageHeight - 9.5);
+
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8.5);
+          doc.setTextColor(100, 116, 139);
+          doc.text(
+            totalPages > 1 ? `Page ${i} of ${totalPages}` : `${new Date().toLocaleDateString('en-GB')}`,
+            pageWidth - margin,
+            pageHeight - 9.5,
+            { align: 'right' }
+          );
+        }
+      };
+
+      if (mode === 'Filtered') {
+        // EXPORT CURRENT FILTERED / SORTED TABLE VIEW
+        const filteredCourses = getFilteredAndSortedCourses();
+        const metrics = computeMetrics(filteredCourses);
+
+        doc.setFillColor(5, 150, 105);
+        doc.rect(margin, 14, usableWidth, 1.5, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(5, 150, 105);
+        doc.text('CUSTOM FILTERED / SORTED GRADE REPORT', margin, 22);
+
+        doc.setFontSize(17);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`${selectedTerm === 'All' ? 'Filtered Courses Report' : selectedTerm + ' (Filtered)'}`, margin, 29);
+
+        let nextY = drawPdfStudentBar(doc, margin, usableWidth, 33);
+
+        doc.setFillColor(236, 253, 245);
+        doc.setDrawColor(167, 243, 208);
+        doc.roundedRect(margin, nextY, usableWidth, 14, 2, 2, 'FD');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(4, 120, 87);
+        doc.text(`Filtered GPA: ${metrics.gpa.toFixed(2)}`, margin + 5, nextY + 9);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9.5);
+        doc.setTextColor(30, 41, 59);
+        doc.text(
+          `Courses: ${filteredCourses.length}   |   Credits: ${metrics.totalCredits.toFixed(2)}   |   Quality Points: ${metrics.totalPoints.toFixed(2)}`,
+          pageWidth - margin - 5,
+          nextY + 9,
+          { align: 'right' }
+        );
+
+        const bodyRows = filteredCourses.map((c, idx) => {
+          const cr = parseFloat(c.credit) || 0;
+          const gp = getGradePoint(c.grade);
+          return [
+            idx + 1,
+            c.code,
+            c.term,
+            (c.sessional || '').toLowerCase() === 'yes' ? 'Sessional' : 'Theory',
+            cr.toFixed(2),
+            c.grade,
+            gp.toFixed(2),
+            (cr * gp).toFixed(2)
+          ];
+        });
+
+        doc.autoTable({
+          startY: nextY + 18,
+          margin: { left: margin, right: margin, bottom: 20 },
+          head: [['#', 'Course Code', 'Level-Term', 'Type', 'Credit', 'Grade', 'GP', 'Points']],
+          body: bodyRows,
+          foot: [[
+            '',
+            'Total / Filtered Summary',
+            `${filteredCourses.length} Courses`,
+            '',
+            metrics.totalCredits.toFixed(2),
+            `GPA: ${metrics.gpa.toFixed(2)}`,
+            '',
+            metrics.totalPoints.toFixed(2)
+          ]],
+          theme: 'grid',
+          headStyles: { fillColor: [5, 150, 105], textColor: 255, fontStyle: 'bold', fontSize: 8.5, halign: 'center' },
+          bodyStyles: { fontSize: 8.5, textColor: [15, 23, 42] },
+          footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 8.5, halign: 'center' },
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 10 },
+            1: { halign: 'left', fontStyle: 'bold', cellWidth: 28 },
+            2: { halign: 'left', cellWidth: 38 },
+            3: { halign: 'left', cellWidth: 24 },
+            4: { halign: 'center', cellWidth: 18 },
+            5: { halign: 'center', fontStyle: 'bold', textColor: [4, 120, 87], cellWidth: 18 },
+            6: { halign: 'center', cellWidth: 18 },
+            7: { halign: 'right', fontStyle: 'bold', cellWidth: 28 }
+          }
+        });
+
+        addPersonalFooter();
+        doc.save('Filtered_Courses_Report.pdf');
+        showToast('Downloaded Filtered View A4 PDF!');
+        return;
+      }
+
+      if (mode !== 'All') {
+        // SINGLE LEVEL-TERM A4 SHEET
+        const term = mode;
+        const termCourses = currentCourses.filter(c => c.term.trim() === term);
+        const metrics = computeMetrics(termCourses);
+        const cumStats = getCumulativeUpToTerm(term);
+
+        // Top Accent Line
+        doc.setFillColor(5, 150, 105);
+        doc.rect(margin, 14, usableWidth, 1.5, 'F');
+
+        // Header Title
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(5, 150, 105);
+        doc.text('ACADEMIC GRADE REPORT', margin, 22);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        doc.setTextColor(15, 23, 42);
+        doc.text(`${term} Grade Sheet`, margin, 30);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`Courses Completed: ${termCourses.length}`, pageWidth - margin, 30, { align: 'right' });
+
+        // Conditionally render Student Name & ID bar
+        const boxY = drawPdfStudentBar(doc, margin, usableWidth, 35);
+        const boxH = 18;
+        const gap = 4;
+        const boxW = (usableWidth - (gap * 2)) / 3;
+
+        // Box 1: Term SGPA
+        doc.setFillColor(236, 253, 245);
+        doc.setDrawColor(167, 243, 208);
+        doc.roundedRect(margin, boxY, boxW, boxH, 2, 2, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(4, 120, 87);
+        doc.text('TERM GPA (SGPA)', margin + boxW / 2, boxY + 6, { align: 'center' });
+        doc.setFontSize(15);
+        doc.setTextColor(6, 95, 70);
+        doc.text(metrics.gpa.toFixed(2), margin + boxW / 2, boxY + 14, { align: 'center' });
+
+        // Box 2: Term Credits
+        const box2X = margin + boxW + gap;
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(203, 213, 225);
+        doc.roundedRect(box2X, boxY, boxW, boxH, 2, 2, 'FD');
+        doc.setFontSize(8);
+        doc.setTextColor(71, 85, 105);
+        doc.text('TERM CREDITS', box2X + boxW / 2, boxY + 6, { align: 'center' });
+        doc.setFontSize(15);
+        doc.setTextColor(15, 23, 42);
+        doc.text(metrics.totalCredits.toFixed(2), box2X + boxW / 2, boxY + 14, { align: 'center' });
+
+        // Box 3: Cumulative CGPA
+        const box3X = margin + (boxW + gap) * 2;
+        doc.setFillColor(248, 250, 252);
+        doc.setDrawColor(203, 213, 225);
+        doc.roundedRect(box3X, boxY, boxW, boxH, 2, 2, 'FD');
+        doc.setFontSize(8);
+        doc.setTextColor(71, 85, 105);
+        doc.text('CUMULATIVE CGPA', box3X + boxW / 2, boxY + 6, { align: 'center' });
+        doc.setFontSize(15);
+        doc.setTextColor(15, 23, 42);
+        doc.text(cumStats.cumGPA, box3X + boxW / 2, boxY + 14, { align: 'center' });
+
+        // Course Table
+        const tableBody = termCourses.map((c, idx) => {
+          const cr = parseFloat(c.credit) || 0;
+          const gp = getGradePoint(c.grade);
+          const pts = (cr * gp).toFixed(2);
+          const isSess = (c.sessional || '').toLowerCase() === 'yes';
+          return [
+            idx + 1,
+            c.code,
+            isSess ? 'Sessional' : 'Theory',
+            cr.toFixed(2),
+            c.grade,
+            gp.toFixed(2),
+            pts
+          ];
+        });
+
+        doc.autoTable({
+          startY: boxY + 23,
+          margin: { left: margin, right: margin },
+          head: [['#', 'Course Code', 'Course Type', 'Credit', 'Grade', 'Grade Point', 'Quality Points']],
+          body: tableBody,
+          foot: [[
+            '',
+            'Term Total / Summary',
+            `${termCourses.length} Courses`,
+            metrics.totalCredits.toFixed(2),
+            `SGPA: ${metrics.gpa.toFixed(2)}`,
+            '',
+            metrics.totalPoints.toFixed(2)
+          ]],
+          theme: 'grid',
+          headStyles: {
+            fillColor: [5, 150, 105],
+            textColor: 255,
+            fontStyle: 'bold',
+            fontSize: 9.5,
+            halign: 'center',
+            cellPadding: 3.2
+          },
+          bodyStyles: {
+            fontSize: 9.5,
+            textColor: [15, 23, 42],
+            cellPadding: 3.2
+          },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252]
+          },
+          footStyles: {
+            fillColor: [241, 245, 249],
+            textColor: [15, 23, 42],
+            fontStyle: 'bold',
+            fontSize: 9.5,
+            halign: 'center',
+            cellPadding: 3.5
+          },
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 12 },
+            1: { halign: 'left', fontStyle: 'bold', cellWidth: 34 },
+            2: { halign: 'left', cellWidth: 32 },
+            3: { halign: 'center', cellWidth: 24 },
+            4: { halign: 'center', fontStyle: 'bold', textColor: [4, 120, 87], cellWidth: 24 },
+            5: { halign: 'center', cellWidth: 26 },
+            6: { halign: 'right', fontStyle: 'bold', cellWidth: 30 }
+          }
+        });
+
+        addPersonalFooter();
+        const safeName = term.replace(/\s+/g, '_');
+        doc.save(`${safeName}_Grade_Sheet.pdf`);
+        showToast(`Downloaded ${term} A4 PDF!`);
+
+      } else {
+        // FULL ACADEMIC GRADE REPORT (ALL TERMS CLEANLY PAGINATED ON A4)
+        const allMetrics = computeMetrics(currentCourses);
+        const terms = getUniqueTerms();
+
+        // Top Accent Line
+        doc.setFillColor(5, 150, 105);
+        doc.rect(margin, 12, usableWidth, 1.5, 'F');
+
+        // Header
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(5, 150, 105);
+        doc.text('ACADEMIC GRADE REPORT', margin, 19);
+
+        doc.setFontSize(16);
+        doc.setTextColor(15, 23, 42);
+        doc.text('Complete Semester-wise Grade Summary', margin, 26);
+
+        // Conditionally draw Student Name & ID bar
+        const bannerY = drawPdfStudentBar(doc, margin, usableWidth, 30);
+
+        // Overall Summary Banner
+        doc.setFillColor(236, 253, 245);
+        doc.setDrawColor(167, 243, 208);
+        doc.roundedRect(margin, bannerY, usableWidth, 16, 2, 2, 'FD');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(6, 95, 70);
+        doc.text('CUMULATIVE GPA (CGPA)', margin + 5, bannerY + 6);
+        doc.setFontSize(15);
+        doc.setTextColor(4, 120, 87);
+        doc.text(`${allMetrics.gpa.toFixed(2)} / 4.00`, margin + 5, bannerY + 13);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(30, 41, 59);
+        doc.text(
+          `Total Credits: ${allMetrics.totalCredits.toFixed(2)}   |   Total Points: ${allMetrics.totalPoints.toFixed(2)}   |   Courses: ${currentCourses.length}   |   Terms: ${terms.length}`,
+          pageWidth - margin - 5,
+          bannerY + 10,
+          { align: 'right' }
+        );
+
+        let currentY = bannerY + 21;
+        let cumCr = 0;
+        let cumPts = 0;
+
+        terms.forEach((term) => {
+          const tCourses = currentCourses.filter(c => c.term.trim() === term);
+          const tMetrics = computeMetrics(tCourses);
+          cumCr += tMetrics.totalCredits;
+          cumPts += tMetrics.totalPoints;
+          const runningCGPA = (cumPts / cumCr).toFixed(2);
+
+          const estimatedTableHeight = 14 + (tCourses.length * 6.5);
+          if (currentY + estimatedTableHeight > pageHeight - 20) {
+            doc.addPage();
+            currentY = 16;
+          }
+
+          // Term Subheader Bar
+          doc.setFillColor(241, 245, 249);
+          doc.setDrawColor(203, 213, 225);
+          doc.rect(margin, currentY, usableWidth, 7, 'FD');
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(9.5);
+          doc.setTextColor(6, 95, 70);
+          doc.text(term, margin + 3, currentY + 4.8);
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8.5);
+          doc.setTextColor(51, 65, 85);
+          doc.text(
+            `SGPA: ${tMetrics.gpa.toFixed(2)}   |   Term Credits: ${tMetrics.totalCredits.toFixed(2)}   |   Running CGPA: ${runningCGPA}`,
+            pageWidth - margin - 3,
+            currentY + 4.8,
+            { align: 'right' }
+          );
+
+          const bodyRows = tCourses.map((c, idx) => {
+            const cr = parseFloat(c.credit) || 0;
+            const gp = getGradePoint(c.grade);
+            return [
+              idx + 1,
+              c.code,
+              (c.sessional || '').toLowerCase() === 'yes' ? 'Sessional' : 'Theory',
+              cr.toFixed(2),
+              c.grade,
+              gp.toFixed(2),
+              (cr * gp).toFixed(2)
+            ];
+          });
+
+          doc.autoTable({
+            startY: currentY + 7,
+            margin: { left: margin, right: margin },
+            head: [['#', 'Course Code', 'Type', 'Credit', 'Grade', 'GP', 'Points']],
+            body: bodyRows,
+            theme: 'grid',
+            headStyles: {
+              fillColor: [5, 150, 105],
+              textColor: 255,
+              fontStyle: 'bold',
+              fontSize: 8,
+              halign: 'center',
+              cellPadding: 1.8
+            },
+            bodyStyles: {
+              fontSize: 8.2,
+              textColor: [15, 23, 42],
+              cellPadding: 1.8
+            },
+            alternateRowStyles: {
+              fillColor: [248, 250, 252]
+            },
+            columnStyles: {
+              0: { halign: 'center', cellWidth: 12 },
+              1: { halign: 'left', fontStyle: 'bold', cellWidth: 36 },
+              2: { halign: 'left', cellWidth: 34 },
+              3: { halign: 'center', cellWidth: 24 },
+              4: { halign: 'center', fontStyle: 'bold', textColor: [4, 120, 87], cellWidth: 24 },
+              5: { halign: 'center', cellWidth: 24 },
+              6: { halign: 'right', fontStyle: 'bold', cellWidth: 28 }
+            }
+          });
+
+          currentY = doc.lastAutoTable.finalY + 6;
+        });
+
+        addPersonalFooter();
+        doc.save('Complete_Academic_Grade_Report.pdf');
+        showToast('Downloaded Complete A4 Grade Report PDF!');
+      }
+    }
+
+    // Quick Add or Update Single Course
+    function addSingleCourse() {
+      const rawCode = document.getElementById('add-code').value.trim();
+      const code = normalizeCourseCode(rawCode);
+      const credit = parseFloat(document.getElementById('add-credit').value);
+      const term = document.getElementById('add-term').value;
+      const sessional = document.getElementById('add-sessional').value;
+      const grade = document.getElementById('add-grade').value;
+
+      if (!code || isNaN(credit) || credit <= 0) {
+        showToast('Please enter a valid Course Code and Credit!');
+        return;
+      }
+
+      const existingIdx = currentCourses.findIndex(
+        c => c.code.replace(/\s+/g, '').toUpperCase() === code.replace(/\s+/g, '').toUpperCase()
+      );
+
+      if (existingIdx !== -1) {
+        currentCourses[existingIdx] = { code, credit, term, sessional, grade, type: 'regular' };
+        showToast(`Updated ${code} in ${term}!`);
+      } else {
+        currentCourses.unshift({ code, credit, term, sessional, grade, type: 'regular' });
+        showToast(`Added ${code} to ${term}!`);
+      }
+
+      document.getElementById('add-code').value = '';
+      document.getElementById('add-credit').value = '';
+      updateDashboardStats();
+      renderTabs();
+      renderActiveTermView();
+    }
+
+    // Modal helpers
+    function toggleModal(modalId) {
+      const modal = document.getElementById(modalId);
+      if (modal.classList.contains('hidden')) {
+        modal.classList.remove('hidden');
+      } else {
+        modal.classList.add('hidden');
+      }
+    }
+
+    // Toast notification helper
+    let toastTimer = null;
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      const msgElem = document.getElementById('toast-msg');
+      if (!toast || !msgElem) return;
+      msgElem.innerText = message;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3000);
+    }
+
+    // Universal CUET Portal Raw Text Parser
+    // Supports ANY department prefix, ANY number of courses (1 to 200+), ANY credit value (including concatenated 3/4 digit course numbers + decimal/integer credits), Level 1-5, Term I-IV
+    function extractCoursesFromText(rawText) {
+      const results = [];
+      if (!rawText) return results;
+
+      // Matches both concatenated portal strings (e.g. "ME3313Level 3 - Term INoB-regular", "Arch 1124.50Level 1 - Term IYesA+regular", "CSE 1413.00Level 1 - Term INoAregular")
+      // and spaced/tabbed portal rows across all departments and batches.
+      const pattern = /([A-Za-z]{2,10})\s*(\d{3,4})\s*(\d{1,2}(?:\.\d{1,2})?)\s*(Level\s*[1-5]\s*-\s*Term\s*(?:IV|III|II|I|[1-4]))\s*(Yes|No)\s*(A\+|A-|A|B\+|B-|B|C\+|C|D|F)\s*(regular|self\s*study|improvement|backlog|[a-zA-Z\s-]*)?(?=[A-Za-z]{2,10}\s*\d{3,4}|Showing\s+\d+|\r|\n|$)/gi;
+
+      const romanMap = { '1': 'I', '2': 'II', '3': 'III', '4': 'IV' };
+      let match;
+
+      while ((match = pattern.exec(rawText)) !== null) {
+        const prefix = match[1].trim();
+        const courseNum = match[2].trim();
+        const code = normalizeCourseCode(`${prefix} ${courseNum}`);
+        const credit = parseFloat(match[3]);
+
+        const rawTerm = match[4].replace(/\s+/g, ' ').trim();
+        const termMatch = rawTerm.match(/Level\s*([1-5])\s*-\s*Term\s*(IV|III|II|I|[1-4])/i);
+        let term = rawTerm;
+        if (termMatch) {
+          const lvl = termMatch[1];
+          const trmRaw = termMatch[2].toUpperCase();
+          const trm = romanMap[trmRaw] || trmRaw;
+          term = `Level ${lvl} - Term ${trm}`;
+        }
+
+        const sessional = match[5].charAt(0).toUpperCase() + match[5].slice(1).toLowerCase();
+        const grade = match[6].toUpperCase();
+        const rawType = (match[7] || 'regular').trim().toLowerCase();
+        const type = rawType || 'regular';
+
+        if (!isNaN(credit) && credit > 0) {
+          results.push({ code, credit, term, sessional, grade, type });
+        }
+      }
+
+      return results;
+    }
+
+    function parseFromOnboarding() {
+      const rawText = document.getElementById('onboarding-raw-textarea').value.trim();
+      if (!rawText) {
+        showToast('Please paste your portal result text first!');
+        return;
+      }
+
+      const parsed = extractCoursesFromText(rawText);
+      if (parsed.length === 0) {
+        showToast('Could not detect valid course records. Please check your pasted text.');
+        return;
+      }
+
+      currentCourses = parsed;
+      selectedTerm = "All";
+      resetFiltersAndSort();
+      updateDashboardStats();
+      renderTabs();
+      renderActiveTermView();
+      showToast(`Successfully parsed ${parsed.length} courses!`);
+    }
+
+    function parseAndLoadInput() {
+      const rawText = document.getElementById('raw-input-textarea').value.trim();
+      if (!rawText) {
+        showToast('Please paste portal data first!');
+        return;
+      }
+
+      const parsed = extractCoursesFromText(rawText);
+      if (parsed.length === 0) {
+        showToast('Could not find valid course entries. Check format.');
+        return;
+      }
+
+      currentCourses = parsed;
+      selectedTerm = "All";
+      resetFiltersAndSort();
+      updateDashboardStats();
+      renderTabs();
+      renderActiveTermView();
+      toggleModal('parser-modal');
+      showToast(`Successfully imported ${parsed.length} courses!`);
+    }
+
+    function clearAllData() {
+      currentCourses = [];
+      selectedTerm = "All";
+      document.getElementById('onboarding-raw-textarea').value = '';
+      document.getElementById('raw-input-textarea').value = '';
+      resetFiltersAndSort();
+      updateDashboardStats();
+      renderTabs();
+      renderActiveTermView();
+      showToast('All course data cleared.');
+    }
+
+    // Dark Mode Toggle
+    function toggleTheme() {
+      const html = document.documentElement;
+      const themeIcon = document.getElementById('theme-icon');
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+        themeIcon.classList.replace('fa-sun', 'fa-moon');
+        localStorage.setItem('theme', 'light');
+      } else {
+        html.classList.add('dark');
+        themeIcon.classList.replace('fa-moon', 'fa-sun');
+        localStorage.setItem('theme', 'dark');
+      }
+    }
+
+    // Initialize
+    window.addEventListener('DOMContentLoaded', () => {
+      if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark');
+        document.getElementById('theme-icon').classList.replace('fa-moon', 'fa-sun');
+      }
+
+      updateDashboardStats();
+      renderTabs();
+      renderActiveTermView();
+    });
+  </script>
+</body>
+</html>
